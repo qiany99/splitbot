@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, filters
 from dotenv import load_dotenv
@@ -16,9 +17,26 @@ TYPE_CATEGORIES = [
     ["🏥 Health & Safety", "🛍️ Shopping & Souvenirs"],
     ["🚗 Transportation", "🔄 Others"]
 ]
+ 
+# Initialize SQLite database
+def setup_database():
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER,
+            type TEXT,
+            name TEXT,
+            amount REAL,
+            paid_by TEXT,
+            shared_with TEXT
+        )
+    ''')
 
-# Dictionary to store group expenses temporarily
-group_expenses = {}
+    conn.commit()
+    conn.close()
 
 # Sends an introductory message to user when input /start
 async def start(update, context):
@@ -85,12 +103,17 @@ async def add_user(update, context):
     # Get the chat ID (each group has unique ID)
     chat_id = update.message.chat.id
     
-    # Create list for this group if it doesn't exist
-    if chat_id not in group_expenses:
-        group_expenses[chat_id] = []
+    # Store the expense in SQLite database
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
     
-    # Store the expense in the group's expense list
-    group_expenses[chat_id].append(expense)
+    cursor.execute('''
+        INSERT INTO expenses (chat_id, type, name, amount, paid_by, shared_with)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (chat_id, expense['type'], expense['name'], expense['amount'],expense['paid_by'], expense['shared_with']))
+
+    conn.commit()
+    conn.close()
 
     await update.message.reply_text(
         f"Expense added!\n"
@@ -111,20 +134,32 @@ async def cancel(update, context):
 async def list_expenses(update, context):
     chat_id = update.message.chat.id
     
-    if chat_id not in group_expenses or not group_expenses[chat_id]:
+    # Connect to database and get expenses for this chat
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM expenses WHERE chat_id = ?', (chat_id,))
+    expenses = cursor.fetchall()
+    
+    conn.close()
+    
+    # Check if no expenses found
+    if not expenses:
         await update.message.reply_text("No expenses found for this group yet!")
         return
     
+    # Build the message from database results
     message = "💰 Group Expenses:\n\n"
-    for i, expense in enumerate(group_expenses[chat_id], 1):
-        message += f"{i}. {expense['name']} - ${expense['amount']}\n"
-        message += f"   Type: {expense['type']}\n"
-        message += f"   Paid by: {expense['paid_by']}\n"
-        message += f"   Split between: {expense['shared_with']}\n\n"
-    
+    for i, expense in enumerate(expenses, 1):
+        # expense is a tuple: (id, chat_id, type, name, amount, paid_by, shared_with)
+        message += f"{i}. {expense[3]} - ${expense[4]}\n"        # name - amount
+        message += f"   Type: {expense[2]}\n"                    # type
+        message += f"   Paid by: {expense[5]}\n"                 # paid_by
+        message += f"   Split between: {expense[6]}\n\n"         # shared_with
     await update.message.reply_text(message)
 
 def main():
+    setup_database()
     app = Application.builder().token(TOKEN).build()
    
     # ConversationHandler for /add
