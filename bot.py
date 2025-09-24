@@ -107,6 +107,23 @@ async def cancel(update, context):
     await update.message.reply_text("Expense addition cancelled.")
     return ConversationHandler.END
 
+# Handler to list all expenses in the group
+async def list_expenses(update, context):
+    chat_id = update.message.chat.id
+    
+    if chat_id not in group_expenses or not group_expenses[chat_id]:
+        await update.message.reply_text("No expenses found for this group yet!")
+        return
+    
+    message = "💰 Group Expenses:\n\n"
+    for i, expense in enumerate(group_expenses[chat_id], 1):
+        message += f"{i}. {expense['name']} - ${expense['amount']}\n"
+        message += f"   Type: {expense['type']}\n"
+        message += f"   Paid by: {expense['paid_by']}\n"
+        message += f"   Split between: {expense['shared_with']}\n\n"
+    
+    await update.message.reply_text(message)
+
 def main():
     app = Application.builder().token(TOKEN).build()
    
@@ -122,9 +139,10 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
-
+    
     # Add Handlers
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("list", list_expenses))
     app.add_handler(conv_handler)
 
     # Run the bot
