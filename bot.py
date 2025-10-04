@@ -23,6 +23,7 @@ def setup_database():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
     
+    # Create table to store expenses
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,17 +36,50 @@ def setup_database():
         )
     ''')
 
+     # Create table to store users
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER,
+        user_id INTEGER,
+        name TEXT,
+        username TEXT
+    )
+''')
+
     conn.commit()
     conn.close()
 
 # Sends an introductory message to user when input /start
 async def start(update, context):
+    chat_id = update.message.chat.id
+    user_id = update.from_user.id
+    name = update.from_user.first_name
+    username = update.from_user.username  # Could be None if they don't have one
+    
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM users WHERE chat_id = ? AND user_id = ?', (chat_id, user_id))
+    existing_user = cursor.fetchone()
+    
+    if not existing_user:
+        cursor.execute('INSERT INTO users (chat_id, user_id, name, username) VALUES (?, ?, ?, ?)', 
+                      (chat_id, user_id, name, username))
+        conn.commit()
+        welcome_msg = f"Welcome {name}! You've been registered."
+    else:
+        welcome_msg = f"Welcome back {name}!"
+    
+    conn.close()
+    
     await update.message.reply_text(
-        "Hello! I am The Split Bot! I am here to manage your group expenses.\n"
+        f"{welcome_msg}\n\n"
         "Use /add to add a new expense.\n" 
-        "Use /help to see what else I can do!"
+        "Use /list to see all expenses.\n"
+        "Use /help to see what else I can do!\n"
+        "⚠️ IMPORTANT: Make sure ALL group members type /start to register before adding expenses!"
     )
-
 # Handler for /add command to start adding an expense    
 async def add_start(update, context):
     reply_markup = ReplyKeyboardMarkup(TYPE_CATEGORIES, one_time_keyboard=True, resize_keyboard=True)
