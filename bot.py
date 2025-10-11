@@ -17,7 +17,18 @@ TYPE_CATEGORIES = [
     ["🏥 Health & Safety", "🛍️ Shopping & Souvenirs"],
     ["🚗 Transportation", "🔄 Others"]
 ]
- 
+
+# Get all registered users for a specific chat
+def get_registered_users(chat_id):
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id, name, username FROM users WHERE chat_id = ?', (chat_id,))
+    users = cursor.fetchall()
+    
+    conn.close()
+    
+    return users
+
 # Initialize SQLite database
 def setup_database():
     conn = sqlite3.connect('expenses.db')
@@ -53,9 +64,9 @@ def setup_database():
 # Sends an introductory message to user when input /start
 async def start(update, context):
     chat_id = update.message.chat.id
-    user_id = update.from_user.id
-    name = update.from_user.first_name
-    username = update.from_user.username  # Could be None if they don't have one
+    user_id = update.effective_user.id
+    name = update.effective_user.first_name
+    username = update.effective_user.username  # Could be None if they don't have one
     
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
@@ -77,7 +88,7 @@ async def start(update, context):
         f"{welcome_msg}\n\n"
         "Use /add to add a new expense.\n" 
         "Use /list to see all expenses.\n"
-        "Use /help to see what else I can do!\n"
+        "Use /help to see what else I can do!\n\n"
         "⚠️ IMPORTANT: Make sure ALL group members type /start to register before adding expenses!"
     )
 # Handler for /add command to start adding an expense    
@@ -112,7 +123,35 @@ async def add_amount(update, context):
         await update.message.reply_text("Please enter a valid number for the amount:")
         return AMOUNT
     
-    await update.message.reply_text("Who paid for the expense:")
+    chat_id = update.message.chat.id
+    users = get_registered_users(chat_id)
+    
+    if not users:
+        await update.message.reply_text(
+            "⚠️ No registered users found!\n"
+            "Please make sure all group members type /start first."
+        )
+        return ConversationHandler.END
+
+    # Create button text for each user
+    keyboard = []
+    for user in users:
+        user_id = user[0]
+        name = user[1]
+        username = user[2]
+
+    # Format: "John (@johnsmith)" or just "John" if no username
+    if username:
+        button_text = f"{name} (@{username})"
+    else:
+        button_text = name
+    
+    keyboard.append([button_text]) 
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+
+    await update.message.reply_text("Who paid for the expense:", reply_markup=reply_markup)
+    
     return PAID_BY
 
 # Handler to add the user who paid
