@@ -1,7 +1,7 @@
 import os
 import sqlite3
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, filters
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, filters, CallbackQueryHandler
 from dotenv import load_dotenv
 
 load_dotenv("token.env")
@@ -102,6 +102,10 @@ async def add_start(update, context):
 
 # Handler to add the type of expense
 async def add_type(update, context):
+
+    print("DEBUG: add_type was called!")  # ADD THIS
+    print(f"DEBUG: Returning NAME state")  # ADD THIS
+
     context.user_data['type'] = update.message.text
     await update.message.reply_text(
         "Enter the name/description of the expense:",
@@ -111,6 +115,10 @@ async def add_type(update, context):
 
 # Handler to add the name/description of the expense
 async def add_name(update, context):
+
+    print("DEBUG: add_name was called!")  # ADD THIS
+    print(f"DEBUG: User typed: {update.message.text}")  # ADD THIS
+
     context.user_data['name'] = update.message.text
     await update.message.reply_text("Enter the amount spent:")
     return AMOUNT
@@ -140,13 +148,13 @@ async def add_amount(update, context):
         name = user[1]
         username = user[2]
 
-    # Format: "John (@johnsmith)" or just "John" if no username
-    if username:
-        button_text = f"{name} (@{username})"
-    else:
-        button_text = name
+        # Format: "John (@johnsmith)" or just "John" if no username
+        if username:
+            button_text = f"{name} (@{username})"
+        else:
+            button_text = name
     
-    keyboard.append([button_text]) 
+        keyboard.append([button_text]) 
 
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
 
@@ -154,10 +162,100 @@ async def add_amount(update, context):
     
     return PAID_BY
 
+async def handle_split_selection(update, context):
+    """Handle inline button clicks for selecting who to split with"""
+    query = update.callback_query
+    await query.answer()  # Acknowledge the button click
+    
+    # Check if "Done" button was clicked
+    if query.data == "split_done":
+        # Handle "Done" - we'll add this logic later
+        await query.edit_message_text("Processing...")
+        return
+    
+    # If not "Done", it must be a user selection button; Extract user_id from callback_data (format: "split_456789")
+    user_id = int(query.data.replace("split_", ""))
+
+    # Toggle user selection
+    if user_id in context.user_data['selected_users']:
+        # Already selected → Remove it (unselect)
+        context.user_data['selected_users'].remove(user_id)
+    else:
+        # Not selected → Add it (select)
+        context.user_data['selected_users'].append(user_id)
+
+    # Rebuild the keyboard with updated checkboxes
+    chat_id = query.message.chat.id
+    users = get_registered_users(chat_id)
+    
+    keyboard = []
+    for user in users:
+        user_id_loop = user[0]
+        name = user[1]
+        username = user[2]
+        
+        # Check if this user is selected
+        if user_id_loop in context.user_data['selected_users']:
+            checkbox = "☑"  # Checked
+        else:
+            checkbox = "☐"  # Unchecked
+        
+        # Format display text with appropriate checkbox
+        if username:
+            display_text = f"{checkbox} {name} (@{username})"
+        else:
+            display_text = f"{checkbox} {name}"
+        
+        button = InlineKeyboardButton(display_text, callback_data=f"split_{user_id_loop}")
+        keyboard.append([button])
+
+    # Add Done button back
+    done_button = InlineKeyboardButton("✅ Done", callback_data="split_done")
+    keyboard.append([done_button])
+
+    # Update the message with new keyboard
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_reply_markup(reply_markup=reply_markup)
+
 # Handler to add the user who paid
 async def add_payer(update, context):
     context.user_data['payer'] = update.message.text
-    await update.message.reply_text("Who should the expense be split between:")
+
+    chat_id = update.message.chat.id
+    users = get_registered_users(chat_id)
+    
+    # Start with empty list of selected users
+    context.user_data['selected_users'] = [] 
+    
+    # Create button text for each user
+    keyboard = []
+    for user in users:
+        user_id = user[0]
+        name = user[1]
+        username = user[2]
+
+        # Format: "John (@johnsmith)" or just "John" if no username
+        if username:
+            display_text = f"☐ {name} (@{username})"
+        else:
+            display_text = f"☐ {name}"
+    
+        # Create button with user_id as callback_data
+        button = InlineKeyboardButton(display_text, callback_data=f"split_{user_id}")
+        keyboard.append([button])  # Each button on own row
+
+    # Add a "Done" button at the end
+    done_button = InlineKeyboardButton("✅ Done", callback_data="split_done")
+    keyboard.append([done_button])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"✅ Paid by: {context.user_data['payer']}\n\n"
+        "Select who should split this expense (tap to toggle):",
+        reply_markup=reply_markup
+    )
+
     return SHARED_WITH
 
 # Handler to add the users who shared the expense
@@ -252,6 +350,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("list", list_expenses))
     app.add_handler(conv_handler)
+    app.add_handler(CallbackQueryHandler(handle_split_selection))
+
 
     # Run the bot
     app.run_polling()
