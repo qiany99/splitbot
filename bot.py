@@ -165,9 +165,74 @@ async def handle_split_selection(update, context):
     
     # Check if "Done" button was clicked
     if query.data == "split_done":
-        # Handle "Done" - we'll add this logic later
-        await query.edit_message_text("Processing...")
-        return
+        # Validate that at least one user was selected
+        if not context.user_data['selected_users']:
+            await query.answer("⚠️ Please select at least one person!", show_alert=True)
+            return
+    
+        # Get the stored data
+        chat_id = query.message.chat.id
+        expense_type = context.user_data['type']
+        expense_name = context.user_data['name']
+        amount = context.user_data['amount']
+        payer_id = context.user_data['payer']
+        selected_user_ids = context.user_data['selected_users']
+    
+        # Convert selected_user_ids list to JSON string
+        import json
+        shared_with_json = json.dumps(selected_user_ids)
+    
+        # Save to database
+        conn = sqlite3.connect('expenses.db')
+        cursor = conn.cursor()
+    
+        cursor.execute('''
+            INSERT INTO expenses (chat_id, type, name, amount, paid_by, shared_with)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (chat_id, expense_type, expense_name, amount, payer_id, shared_with_json))
+    
+        conn.commit()
+        conn.close()
+
+          # Get payer name from database
+        payer_user = None
+        shared_users = []
+
+        # Fetch all users to get names
+        users = get_registered_users(chat_id)
+    
+        for user in users:
+            user_id = user[0]
+            name = user[1]
+            username = user[2]
+        
+            # Format display name
+            if username:
+                display_name = f"{name} (@{username})"
+            else:
+                display_name = name
+        
+            # Check if this is the payer
+            if user_id == payer_id:
+                payer_user = display_name
+        
+            # Check if this user is in shared list
+            if user_id in selected_user_ids:
+                shared_users.append(display_name)
+        
+        # Create confirmation message
+        confirmation = (
+            f"✅ Expense saved!\n\n"
+            f"📋 Summary:\n"
+            f"• Type: {expense_type}\n"
+            f"• Name: {expense_name}\n"
+            f"• Amount: ${amount}\n"
+            f"• Paid by: {payer_user}\n"
+            f"• Split between: {', '.join(shared_users)}"
+        )
+    
+        await query.edit_message_text(confirmation)
+        return ConversationHandler.END
     
     # Check if "who paid" button was clicked
     if query.data.startswith("payer_"):
@@ -258,44 +323,6 @@ async def handle_split_selection(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_reply_markup(reply_markup=reply_markup)
 
-# Handler to add the users who shared the expense
-async def add_user(update, context):
-    context.user_data['users'] = update.message.text
-    
-    # Storing the expense in a dictionary
-    expense = {
-        'type': context.user_data['type'],
-        'name': context.user_data['name'],
-        'amount': context.user_data['amount'],
-        'paid_by': context.user_data['payer'],
-        'shared_with': context.user_data['users'],
-    }
-
-    # Get the chat ID (each group has unique ID)
-    chat_id = update.message.chat.id
-    
-    # Store the expense in SQLite database
-    conn = sqlite3.connect('expenses.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        INSERT INTO expenses (chat_id, type, name, amount, paid_by, shared_with)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (chat_id, expense['type'], expense['name'], expense['amount'],expense['paid_by'], expense['shared_with']))
-
-    conn.commit()
-    conn.close()
-
-    await update.message.reply_text(
-        f"Expense added!\n"
-        f"Type: {expense['type']}\n"
-        f"Name: {expense['name']}\n"
-        f"Amount: {expense['amount']}\n"
-        f"Paid By: {expense['paid_by']}\n"
-        f"Split between: {expense['shared_with']}"
-    )
-    return ConversationHandler.END
-    
 # Handler to cancel the conversation
 async def cancel(update, context):
     await update.message.reply_text("Expense addition cancelled.")
