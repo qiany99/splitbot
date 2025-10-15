@@ -42,7 +42,7 @@ def setup_database():
             type TEXT,
             name TEXT,
             amount REAL,
-            paid_by TEXT,
+            paid_by INTEGER,
             shared_with TEXT
         )
     ''')
@@ -103,9 +103,6 @@ async def add_start(update, context):
 # Handler to add the type of expense
 async def add_type(update, context):
 
-    print("DEBUG: add_type was called!")  # ADD THIS
-    print(f"DEBUG: Returning NAME state")  # ADD THIS
-
     context.user_data['type'] = update.message.text
     await update.message.reply_text(
         "Enter the name/description of the expense:",
@@ -115,9 +112,6 @@ async def add_type(update, context):
 
 # Handler to add the name/description of the expense
 async def add_name(update, context):
-
-    print("DEBUG: add_name was called!")  # ADD THIS
-    print(f"DEBUG: User typed: {update.message.text}")  # ADD THIS
 
     context.user_data['name'] = update.message.text
     await update.message.reply_text("Enter the amount spent:")
@@ -141,26 +135,28 @@ async def add_amount(update, context):
         )
         return ConversationHandler.END
 
-    # Create button text for each user
+    # Create inline button for each user
     keyboard = []
     for user in users:
         user_id = user[0]
         name = user[1]
         username = user[2]
-
-        # Format: "John (@johnsmith)" or just "John" if no username
-        if username:
-            button_text = f"{name} (@{username})"
-        else:
-            button_text = name
     
-        keyboard.append([button_text]) 
+    # Format display name
+    if username:
+        display_text = f"{name} (@{username})"
+    else:
+        display_text = name
+    
+    # Create inline button with user_id in callback_data
+    button = InlineKeyboardButton(display_text, callback_data=f"payer_{user_id}")
+    keyboard.append([button])
 
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    reply_markup = InlineKeyboardMarkup(keyboard)  
 
     await update.message.reply_text("Who paid for the expense:", reply_markup=reply_markup)
     
-    return PAID_BY
+    return ConversationHandler.END
 
 async def handle_split_selection(update, context):
     """Handle inline button clicks for selecting who to split with"""
@@ -171,6 +167,51 @@ async def handle_split_selection(update, context):
     if query.data == "split_done":
         # Handle "Done" - we'll add this logic later
         await query.edit_message_text("Processing...")
+        return
+    
+    # Check if "who paid" button was clicked
+    if query.data.startswith("payer_"):
+        # Extract user_id from callback_data
+        user_id = int(query.data.replace("payer_", ""))
+        
+        # Store the user_id
+        context.user_data['payer'] = user_id
+        
+        # Initialize empty list for split selections
+        context.user_data['selected_users'] = []
+        
+        # Get all users to show split selection
+        chat_id = query.message.chat.id
+        users = get_registered_users(chat_id)
+        
+        # Create keyboard with checkboxes
+        keyboard = []
+        for user in users:
+            user_id_loop = user[0]
+            name = user[1]
+            username = user[2]
+            
+            # Format display text
+            if username:
+                display_text = f"☐ {name} (@{username})"
+            else:
+                display_text = f"☐ {name}"
+            
+            button = InlineKeyboardButton(display_text, callback_data=f"split_{user_id_loop}")
+            keyboard.append([button])
+        
+        # Add Done button
+        done_button = InlineKeyboardButton("✅ Done", callback_data="split_done")
+        keyboard.append([done_button])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Update the message to show split selection
+        await query.edit_message_text(
+            "✅ Payer selected!\n\n"
+            "Select who should split this expense (tap to toggle):",
+            reply_markup=reply_markup
+        )
         return
     
     # If not "Done", it must be a user selection button; Extract user_id from callback_data (format: "split_456789")
@@ -216,47 +257,6 @@ async def handle_split_selection(update, context):
     # Update the message with new keyboard
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_reply_markup(reply_markup=reply_markup)
-
-# Handler to add the user who paid
-async def add_payer(update, context):
-    context.user_data['payer'] = update.message.text
-
-    chat_id = update.message.chat.id
-    users = get_registered_users(chat_id)
-    
-    # Start with empty list of selected users
-    context.user_data['selected_users'] = [] 
-    
-    # Create button text for each user
-    keyboard = []
-    for user in users:
-        user_id = user[0]
-        name = user[1]
-        username = user[2]
-
-        # Format: "John (@johnsmith)" or just "John" if no username
-        if username:
-            display_text = f"☐ {name} (@{username})"
-        else:
-            display_text = f"☐ {name}"
-    
-        # Create button with user_id as callback_data
-        button = InlineKeyboardButton(display_text, callback_data=f"split_{user_id}")
-        keyboard.append([button])  # Each button on own row
-
-    # Add a "Done" button at the end
-    done_button = InlineKeyboardButton("✅ Done", callback_data="split_done")
-    keyboard.append([done_button])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        f"✅ Paid by: {context.user_data['payer']}\n\n"
-        "Select who should split this expense (tap to toggle):",
-        reply_markup=reply_markup
-    )
-
-    return SHARED_WITH
 
 # Handler to add the users who shared the expense
 async def add_user(update, context):
@@ -340,8 +340,6 @@ def main():
             TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_type)],
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_name)],
             AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_amount)],
-            PAID_BY: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_payer)],
-            SHARED_WITH: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_user)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
