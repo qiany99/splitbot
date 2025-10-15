@@ -87,10 +87,12 @@ async def start(update, context):
     
     await update.message.reply_text(
         f"{welcome_msg}\n\n"
-        "Use /add to add a new expense.\n" 
-        "Use /list to see all expenses.\n"
-        "Use /help to see what else I can do!\n\n"
-        "⚠️ IMPORTANT: Make sure ALL group members type /start to register before adding expenses!"
+        "📝 Available commands:\n"
+        "• /add - Add a new expense\n" 
+        "• /balance - See who owes what\n"
+        "• /list - See all expenses\n"
+        "• /help - Show this help\n\n"
+        "⚠️ IMPORTANT: Make sure ALL group members type /start to register!"
     )
 # Handler for /add command to start adding an expense    
 async def add_start(update, context):
@@ -143,15 +145,15 @@ async def add_amount(update, context):
         name = user[1]
         username = user[2]
     
-    # Format display name
-    if username:
-        display_text = f"{name} (@{username})"
-    else:
-        display_text = name
+        # Format display name
+        if username:
+            display_text = f"{name} (@{username})"
+        else:
+            display_text = name
     
-    # Create inline button with user_id in callback_data
-    button = InlineKeyboardButton(display_text, callback_data=f"payer_{user_id}")
-    keyboard.append([button])
+        # Create inline button with user_id in callback_data
+        button = InlineKeyboardButton(display_text, callback_data=f"payer_{user_id}")
+        keyboard.append([button])
 
     reply_markup = InlineKeyboardMarkup(keyboard)  
 
@@ -335,10 +337,8 @@ async def list_expenses(update, context):
     # Connect to database and get expenses for this chat
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    
     cursor.execute('SELECT * FROM expenses WHERE chat_id = ?', (chat_id,))
-    expenses = cursor.fetchall()
-    
+    expenses = cursor.fetchall() 
     conn.close()
     
     # Check if no expenses found
@@ -346,9 +346,10 @@ async def list_expenses(update, context):
         await update.message.reply_text("No expenses found for this group yet!")
         return
     
+    users = get_registered_users(chat_id)
+
     # Build the message from database results
     message = "💰 Group Expenses:\n\n"
-    users = get_registered_users(chat_id)
     for i, expense in enumerate(expenses, 1):
         # expense is a tuple: (id, chat_id, type, name, amount, paid_by, shared_with)
         message += f"{i}. {expense[3]} - ${expense[4]}\n"        # name - amount
@@ -379,6 +380,70 @@ async def list_expenses(update, context):
 
     await update.message.reply_text(message)
 
+# Handler to balance all expenses in the group
+async def balance_expenses(update, context):
+
+    #Build the message from database results
+    message = "💰 Group Balances:\n\n"
+    
+    chat_id = update.message.chat.id
+
+    # Connect to database 
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+
+    # Get all expenses for this chat
+    cursor.execute('SELECT amount, paid_by, shared_with FROM expenses WHERE chat_id = ?', (chat_id,))
+    expenses = cursor.fetchall()
+     # Check if no expenses found
+    if not expenses:
+        await update.message.reply_text("No expenses found for this group yet!")
+        return
+
+    users = get_registered_users(chat_id)
+    if not users:
+        await update.message.reply_text(
+            "⚠️ No registered users found!\n"
+            "Please make sure all group members type /start first."
+        )
+        return
+    
+    # Loop through each user to calculate their balance
+    for user in users:
+        user_id = user[0]
+        name = user[1]
+        username = user[2]
+        # Format display name
+        if username:
+            display_name = f"{name} (@{username})"
+        else:
+            display_name = name 
+        
+        #Tabulate the money owed or owing to others by looping through all expenses
+        money_owe = 0
+        money_owed = 0
+        for expense in expenses:
+            amount = expense[0]
+            if expense[1] == user_id:
+                money_owed += amount
+
+            shared_with = json.loads(expense[2])
+            if user_id in shared_with:
+                split_amount = amount / len(shared_with)
+                money_owe += split_amount 
+
+        balance = money_owed - money_owe
+
+        if balance >0:
+            message += f"• {display_name} is owed ${balance:.2f}\n"
+        elif balance <0:
+            message += f"• {display_name} owes ${-balance:.2f}\n"
+        else:
+            message += f"• {display_name} is settled up.\n"
+    
+    conn.close()  
+    await update.message.reply_text(message)
+
 def main():
     setup_database()
     app = Application.builder().token(TOKEN).build()
@@ -399,6 +464,7 @@ def main():
     app.add_handler(CommandHandler("list", list_expenses))
     app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(handle_split_selection))
+    app.add_handler(CommandHandler("balance", balance_expenses))
 
 
     # Run the bot
