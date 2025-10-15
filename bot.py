@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
@@ -179,7 +180,6 @@ async def handle_split_selection(update, context):
         selected_user_ids = context.user_data['selected_users']
     
         # Convert selected_user_ids list to JSON string
-        import json
         shared_with_json = json.dumps(selected_user_ids)
     
         # Save to database
@@ -194,7 +194,7 @@ async def handle_split_selection(update, context):
         conn.commit()
         conn.close()
 
-          # Get payer name from database
+        # Get payer name from database
         payer_user = None
         shared_users = []
 
@@ -348,12 +348,35 @@ async def list_expenses(update, context):
     
     # Build the message from database results
     message = "💰 Group Expenses:\n\n"
+    users = get_registered_users(chat_id)
     for i, expense in enumerate(expenses, 1):
         # expense is a tuple: (id, chat_id, type, name, amount, paid_by, shared_with)
         message += f"{i}. {expense[3]} - ${expense[4]}\n"        # name - amount
         message += f"   Type: {expense[2]}\n"                    # type
-        message += f"   Paid by: {expense[5]}\n"                 # paid_by
-        message += f"   Split between: {expense[6]}\n\n"         # shared_with
+
+        # Get payer name from database
+        payer_user = None
+        shared_users = []
+        # Fetch all users to get names
+        for user in users:
+            user_id = user[0]
+            name = user[1]
+            username = user[2]
+            # Format display name
+            if username:
+                display_name = f"{name} (@{username})"
+            else:
+                display_name = name    
+            # Check if this is the payer
+            if user_id == expense[5] :
+                payer_user = display_name       
+            # Check if this user is in shared list
+            if user_id in json.loads(expense[6]):
+                shared_users.append(display_name)
+
+        message += f"   Paid by: {payer_user}\n"                 # paid_by
+        message += f"   Split between: {', '.join(shared_users)}\n\n"         # shared_with
+
     await update.message.reply_text(message)
 
 def main():
