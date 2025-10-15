@@ -408,6 +408,9 @@ async def balance_expenses(update, context):
         )
         return
     
+    creditors = []  # People who are OWED money (balance > 0)
+    debtors = []    # People who OWE money (balance < 0)    
+
     # Loop through each user to calculate their balance
     for user in users:
         user_id = user[0]
@@ -436,11 +439,49 @@ async def balance_expenses(update, context):
 
         if balance >0:
             message += f"• {display_name} is owed ${balance:.2f}\n"
+            creditors.append((display_name, balance))    
         elif balance <0:
             message += f"• {display_name} owes ${-balance:.2f}\n"
+            debtors.append((display_name, -balance))
         else:
             message += f"• {display_name} is settled up.\n"
+
+    # Step 3: Calculate settlements
+    settlements = []
+
+    # Sort by amount (biggest first) - makes algorithm more efficient
+    creditors.sort(key=lambda x: x[1], reverse=True)
+    debtors.sort(key=lambda x: x[1], reverse=True)
+
+    # While there are still people to settle
+    while creditors and debtors:
+        # Get the biggest creditor and debtor
+        creditor_name, creditor_amount = creditors[0]
+        debtor_name, debtor_amount = debtors[0]
     
+        # Transfer the smaller amount
+        transfer_amount = min(creditor_amount, debtor_amount)
+    
+        # Record the settlement
+        settlements.append(f"• {debtor_name} pays {creditor_name} ${transfer_amount:.2f}")
+    
+        # Update balances
+        creditors[0] = (creditor_name, creditor_amount - transfer_amount)
+        debtors[0] = (debtor_name, debtor_amount - transfer_amount)
+    
+        # Remove if settled
+        if creditors[0][1] == 0:
+            creditors.pop(0)
+        if debtors[0][1] == 0:
+            debtors.pop(0)
+
+    # Display settlements
+    if settlements:
+        message += "\n💸 Settlement Plan:\n"
+        message += "\n".join(settlements)
+    else:
+        message += "\n✅ Everyone is settled up!"
+
     conn.close()  
     await update.message.reply_text(message)
 
