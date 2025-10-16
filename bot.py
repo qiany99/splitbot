@@ -30,6 +30,61 @@ def get_registered_users(chat_id):
     
     return users
 
+#Calculate balances for all users in a group. Returns (user_balances, creditors, debtors)
+def calculate_balances(chat_id):
+
+    # Get expenses
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT amount, paid_by, shared_with FROM expenses WHERE chat_id = ?', (chat_id,))
+    expenses = cursor.fetchall()
+    conn.close()
+       
+    # Get users
+    users = get_registered_users(chat_id)
+    
+    user_balances = []  # List of (display_name, balance)
+    creditors = []
+    debtors = []
+    
+    # Calculate balance for each user
+    for user in users:
+        user_id = user[0]
+        name = user[1]
+        username = user[2]
+        
+        # Format display name
+        if username:
+            display_name = f"{name} (@{username})"
+        else:
+            display_name = name
+        
+        # Calculate balance
+        money_owe = 0
+        money_owed = 0
+        
+        for expense in expenses:
+            amount = expense[0]
+            if expense[1] == user_id:
+                money_owed += amount
+            
+            shared_with = json.loads(expense[2])
+            if user_id in shared_with:
+                split_amount = amount / len(shared_with)
+                money_owe += split_amount
+        
+        balance = money_owed - money_owe
+        
+        # Store in all lists
+        user_balances.append((display_name, balance))
+        
+        if balance > 0:
+            creditors.append((display_name, balance))
+        elif balance < 0:
+            debtors.append((display_name, abs(balance)))
+    
+    return user_balances, creditors, debtors
+
 # Initialize SQLite database
 def setup_database():
     conn = sqlite3.connect('expenses.db')
@@ -89,8 +144,9 @@ async def start(update, context):
         f"{welcome_msg}\n\n"
         "📝 Available commands:\n"
         "• /add - Add a new expense\n" 
-        "• /balance - See who owes what\n"
         "• /list - See all expenses\n"
+        "• /balance - See who owes what\n"
+        "• /settle - Settle up expenses\n"
         "• /help - Show this help\n\n"
         "⚠️ IMPORTANT: Make sure ALL group members type /start to register!"
     )
@@ -375,114 +431,84 @@ async def list_expenses(update, context):
             if user_id in json.loads(expense[6]):
                 shared_users.append(display_name)
 
-        message += f"   Paid by: {payer_user}\n"                 # paid_by
-        message += f"   Split between: {', '.join(shared_users)}\n\n"         # shared_with
+        message += f"   Paid by: {payer_user}\n"    # paid_by
+        message += f"   Split between: {', '.join(shared_users)}\n\n"   # shared_with
 
     await update.message.reply_text(message)
 
 # Handler to balance all expenses in the group
 async def balance_expenses(update, context):
-
-    #Build the message from database results
-    message = "💰 Group Balances:\n\n"
-    
     chat_id = update.message.chat.id
-
-    # Connect to database 
+    
+    # Check if expenses exist
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-
-    # Get all expenses for this chat
-    cursor.execute('SELECT amount, paid_by, shared_with FROM expenses WHERE chat_id = ?', (chat_id,))
-    expenses = cursor.fetchall()
-     # Check if no expenses found
-    if not expenses:
+    cursor.execute('SELECT COUNT(*) FROM expenses WHERE chat_id = ?', (chat_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    
+    if count == 0:
         await update.message.reply_text("No expenses found for this group yet!")
         return
+    
+    # Get calculated balances
+    user_balances, creditors, debtors = calculate_balances(chat_id)
+    
+    # Build message
+    message = "💰 Group Balances:\n\n"
+    for display_name, balance in user_balances:
+        if balance > 0:
+            message += f"• {display_name} is owed ${balance:.2f}\n"
+        elif balance < 0:
+            message += f"• {display_name} owes ${-balance:.2f}\n"
+        else:
+            message += f"• {display_name} is settled up\n"
+    
+    await update.message.reply_text(message)
 
-    users = get_registered_users(chat_id)
-    if not users:
-        await update.message.reply_text(
-            "⚠️ No registered users found!\n"
-            "Please make sure all group members type /start first."
-        )
+async def settle_expenses(update, context):
+    chat_id = update.message.chat.id
+    
+    # Check if expenses exist
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM expenses WHERE chat_id = ?', (chat_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    
+    if count == 0:
+        await update.message.reply_text("No expenses found for this group yet!")
         return
     
-    creditors = []  # People who are OWED money (balance > 0)
-    debtors = []    # People who OWE money (balance < 0)    
-
-    # Loop through each user to calculate their balance
-    for user in users:
-        user_id = user[0]
-        name = user[1]
-        username = user[2]
-        # Format display name
-        if username:
-            display_name = f"{name} (@{username})"
-        else:
-            display_name = name 
-        
-        #Tabulate the money owed or owing to others by looping through all expenses
-        money_owe = 0
-        money_owed = 0
-        for expense in expenses:
-            amount = expense[0]
-            if expense[1] == user_id:
-                money_owed += amount
-
-            shared_with = json.loads(expense[2])
-            if user_id in shared_with:
-                split_amount = amount / len(shared_with)
-                money_owe += split_amount 
-
-        balance = money_owed - money_owe
-
-        if balance >0:
-            message += f"• {display_name} is owed ${balance:.2f}\n"
-            creditors.append((display_name, balance))    
-        elif balance <0:
-            message += f"• {display_name} owes ${-balance:.2f}\n"
-            debtors.append((display_name, -balance))
-        else:
-            message += f"• {display_name} is settled up.\n"
-
-    # Step 3: Calculate settlements
+    # Get calculated balances - we only need creditors and debtors!
+    user_balances, creditors, debtors = calculate_balances(chat_id)
+    
+    # Settlement algorithm
     settlements = []
-
-    # Sort by amount (biggest first) - makes algorithm more efficient
     creditors.sort(key=lambda x: x[1], reverse=True)
     debtors.sort(key=lambda x: x[1], reverse=True)
-
-    # While there are still people to settle
+    
     while creditors and debtors:
-        # Get the biggest creditor and debtor
         creditor_name, creditor_amount = creditors[0]
         debtor_name, debtor_amount = debtors[0]
-    
-        # Transfer the smaller amount
+        
         transfer_amount = min(creditor_amount, debtor_amount)
-    
-        # Record the settlement
         settlements.append(f"• {debtor_name} pays {creditor_name} ${transfer_amount:.2f}")
-    
-        # Update balances
+        
         creditors[0] = (creditor_name, creditor_amount - transfer_amount)
         debtors[0] = (debtor_name, debtor_amount - transfer_amount)
-    
-        # Remove if settled
+        
         if creditors[0][1] == 0:
             creditors.pop(0)
         if debtors[0][1] == 0:
             debtors.pop(0)
-
+    
     # Display settlements
     if settlements:
-        message += "\n💸 Settlement Plan:\n"
-        message += "\n".join(settlements)
+        message = "💸 Settlement Plan:\n\n" + "\n".join(settlements)
     else:
-        message += "\n✅ Everyone is settled up!"
-
-    conn.close()  
+        message = "✅ Everyone is settled up!"
+    
     await update.message.reply_text(message)
 
 def main():
@@ -506,7 +532,7 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(handle_split_selection))
     app.add_handler(CommandHandler("balance", balance_expenses))
-
+    app.add_handler(CommandHandler("settle", settle_expenses))
 
     # Run the bot
     app.run_polling()
