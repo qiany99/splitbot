@@ -30,6 +30,26 @@ def get_registered_users(chat_id):
     
     return users
 
+# Validate that group has users and expenses. Returns error message or None if valid.
+def validate_group_data(chat_id):
+    
+    # Check if users are registered
+    users = get_registered_users(chat_id)
+    if not users:
+        return "⚠️ No registered users found!\n Please make sure all group members type /start first."
+    
+    # Check if expenses exist
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM expenses WHERE chat_id = ?', (chat_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    
+    if count == 0:
+        return "No expenses found for this group yet!"
+    
+    return None
+
 #Calculate balances for all users in a group. Returns (user_balances, creditors, debtors)
 def calculate_balances(chat_id):
 
@@ -390,17 +410,18 @@ async def cancel(update, context):
 async def list_expenses(update, context):
     chat_id = update.message.chat.id
     
+    # Validate group data
+    error_msg = validate_group_data(chat_id)
+    if error_msg:
+        await update.message.reply_text(error_msg)
+        return
+
     # Connect to database and get expenses for this chat
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM expenses WHERE chat_id = ?', (chat_id,))
     expenses = cursor.fetchall() 
     conn.close()
-    
-    # Check if no expenses found
-    if not expenses:
-        await update.message.reply_text("No expenses found for this group yet!")
-        return
     
     users = get_registered_users(chat_id)
 
@@ -439,16 +460,11 @@ async def list_expenses(update, context):
 # Handler to balance all expenses in the group
 async def balance_expenses(update, context):
     chat_id = update.message.chat.id
-    
-    # Check if expenses exist
-    conn = sqlite3.connect('expenses.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM expenses WHERE chat_id = ?', (chat_id,))
-    count = cursor.fetchone()[0]
-    conn.close()
-    
-    if count == 0:
-        await update.message.reply_text("No expenses found for this group yet!")
+
+   # Validate group data
+    error_msg = validate_group_data(chat_id)
+    if error_msg:
+        await update.message.reply_text(error_msg)
         return
     
     # Get calculated balances
@@ -468,18 +484,14 @@ async def balance_expenses(update, context):
 
 async def settle_expenses(update, context):
     chat_id = update.message.chat.id
+    validate_group_data(chat_id)
     
-    # Check if expenses exist
-    conn = sqlite3.connect('expenses.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM expenses WHERE chat_id = ?', (chat_id,))
-    count = cursor.fetchone()[0]
-    conn.close()
-    
-    if count == 0:
-        await update.message.reply_text("No expenses found for this group yet!")
+    # Validate group data
+    error_msg = validate_group_data(chat_id)
+    if error_msg:
+        await update.message.reply_text(error_msg)
         return
-    
+
     # Get calculated balances - we only need creditors and debtors!
     user_balances, creditors, debtors = calculate_balances(chat_id)
     
