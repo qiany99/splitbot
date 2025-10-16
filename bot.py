@@ -162,13 +162,14 @@ async def start(update, context):
     
     await update.message.reply_text(
         f"{welcome_msg}\n\n"
-        "📝 Available commands:\n"
+        "📝 Available commands 📝\n"
         "• /add - Add a new expense\n" 
         "• /list - See all expenses\n"
         "• /balance - See who owes what\n"
         "• /settle - Settle up expenses\n"
-        "• /help - Show this help\n\n"
-        "⚠️ IMPORTANT: Make sure ALL group members type /start to register!"
+        "• /mybreakdown - View personal spending by category\n"
+        "• /groupbreakdown - View group spending by category\n\n"
+        "⚠️ IMPORTANT: Make sure ALL group members type /start to register! ⚠️"
     )
 # Handler for /add command to start adding an expense    
 async def add_start(update, context):
@@ -209,7 +210,7 @@ async def add_amount(update, context):
     
     if not users:
         await update.message.reply_text(
-            "⚠️ No registered users found!\n"
+            "⚠️ No registered users found! ⚠️\n"
             "Please make sure all group members type /start first."
         )
         return ConversationHandler.END
@@ -237,16 +238,17 @@ async def add_amount(update, context):
     
     return ConversationHandler.END
 
+#Handle inline button clicks for selecting who to split with
 async def handle_split_selection(update, context):
-    """Handle inline button clicks for selecting who to split with"""
     query = update.callback_query
     await query.answer()  # Acknowledge the button click
     
     # Check if "Done" button was clicked
     if query.data == "split_done":
+        
         # Validate that at least one user was selected
         if not context.user_data['selected_users']:
-            await query.answer("⚠️ Please select at least one person!", show_alert=True)
+            await query.answer("⚠️ Please select at least one person! ⚠️", show_alert=True)
             return
     
         # Get the stored data
@@ -259,18 +261,6 @@ async def handle_split_selection(update, context):
     
         # Convert selected_user_ids list to JSON string
         shared_with_json = json.dumps(selected_user_ids)
-    
-        # Save to database
-        conn = sqlite3.connect('expenses.db')
-        cursor = conn.cursor()
-    
-        cursor.execute('''
-            INSERT INTO expenses (chat_id, type, name, amount, paid_by, shared_with)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (chat_id, expense_type, expense_name, amount, payer_id, shared_with_json))
-    
-        conn.commit()
-        conn.close()
 
         # Get payer name from database
         payer_user = None
@@ -298,18 +288,93 @@ async def handle_split_selection(update, context):
             if user_id in selected_user_ids:
                 shared_users.append(display_name)
         
-        # Create confirmation message
+        # Seeking for confirmation message
         confirmation = (
-            f"✅ Expense saved!\n\n"
-            f"📋 Summary:\n"
+            f"❗️❗️Please confirm the expense details❗️❗️\n\n"
             f"• Type: {expense_type}\n"
             f"• Name: {expense_name}\n"
             f"• Amount: ${amount}\n"
             f"• Paid by: {payer_user}\n"
             f"• Split between: {', '.join(shared_users)}"
         )
+        
+        keyboard = []
+        confirm_button = InlineKeyboardButton("✅ Confirm & Save", callback_data="confirm")
+        keyboard.append([confirm_button])
+        cancel_button = InlineKeyboardButton("❌ Cancel", callback_data="cancel")
+        keyboard.append([cancel_button]) 
+        reply_markup= InlineKeyboardMarkup(keyboard)
+
+        await query.edit_message_text(confirmation, reply_markup=reply_markup)
+        return
     
-        await query.edit_message_text(confirmation)
+    if query.data == "cancel":
+        await query.edit_message_text("❌ Expense cancelled. Not saved.")
+        return ConversationHandler.END
+
+    if query.data == "confirm":
+        
+        # Get the stored data
+        chat_id = query.message.chat.id
+        expense_type = context.user_data['type']
+        expense_name = context.user_data['name']
+        amount = context.user_data['amount']
+        payer_id = context.user_data['payer']
+        selected_user_ids = context.user_data['selected_users']
+    
+        # Convert selected_user_ids list to JSON string
+        shared_with_json = json.dumps(selected_user_ids)
+
+        # Get payer name from database
+        payer_user = "Unknown"
+        shared_users = []
+
+        # Fetch all users to get names
+        users = get_registered_users(chat_id)
+    
+        for user in users:
+            user_id = user[0]
+            name = user[1]
+            username = user[2]
+        
+            # Format display name
+            if username:
+                display_name = f"{name} (@{username})"
+            else:
+                display_name = name
+        
+            # Check if this is the payer
+            if user_id == payer_id:
+                payer_user = display_name
+        
+            # Check if this user is in shared list
+            if user_id in selected_user_ids:
+                shared_users.append(display_name)
+
+        # Acknowledgement message
+        acknowledgement = (
+            f"✅ Expense saved!\n\n"
+            f"📋 Summary 📋\n"
+            f"• Type: {expense_type}\n"
+            f"• Name: {expense_name}\n"
+            f"• Amount: ${amount}\n"
+            f"• Paid by: {payer_user}\n"
+            f"• Split between: {', '.join(shared_users)}"
+        )
+
+        # Save to database
+        conn = sqlite3.connect('expenses.db')
+        cursor = conn.cursor()
+    
+        cursor.execute('''
+            INSERT INTO expenses (chat_id, type, name, amount, paid_by, shared_with)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (chat_id, expense_type, expense_name, amount, payer_id, shared_with_json))
+    
+        conn.commit()
+        conn.close()
+    
+        await query.edit_message_text(acknowledgement)
         return ConversationHandler.END
     
     # Check if "who paid" button was clicked
@@ -471,7 +536,7 @@ async def balance_expenses(update, context):
     user_balances, creditors, debtors = calculate_balances(chat_id)
     
     # Build message
-    message = "💰 Group Balances:\n\n"
+    message = "💰 Group Balances 💰\n\n"
     for display_name, balance in user_balances:
         if balance > 0:
             message += f"• {display_name} is owed ${balance:.2f}\n"
@@ -517,11 +582,115 @@ async def settle_expenses(update, context):
     
     # Display settlements
     if settlements:
-        message = "💸 Settlement Plan:\n\n" + "\n".join(settlements)
+        message = "💸 Settlement Plan 💸\n\n" + "\n".join(settlements)
     else:
         message = "✅ Everyone is settled up!"
     
     await update.message.reply_text(message)
+
+async def group_breakdown(update, context):
+    chat_id = update.message.chat.id
+
+     # Validate group data
+    error_msg = validate_group_data(chat_id)
+    if error_msg:
+        await update.message.reply_text(error_msg)
+        return
+    
+    # Connect to database and get expenses for this chat
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT type, SUM(amount) FROM expenses WHERE chat_id = ? GROUP BY type ORDER BY type', (chat_id,))
+    expenses = cursor.fetchall() 
+    conn.close()
+
+    # Build the message from database results
+    message = "💰 Group Expense Summary (By Category) 💰\n\n"
+    total_spend = 0
+    for expense in expenses:
+        message +=f"{expense[0]}: ${expense[1]:.2f}\n"
+        total_spend += expense[1]
+
+    message += f"\n💵 Total Spent: ${total_spend:.2f}"
+    
+    await update.message.reply_text(message)
+
+async def my_breakdown(update, context):
+    chat_id = update.message.chat.id
+    user_id = update.message.from_user.id
+
+    # Validate group data
+    error_msg = validate_group_data(chat_id)
+    if error_msg:
+        await update.message.reply_text(error_msg)
+        return
+
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id, name, username FROM users WHERE user_id = ?', (user_id,))
+    user = cursor.fetchall()
+
+    if not user: 
+        message = "⚠️ You are not registered! ⚠️\n Please type /start to register!"
+        await update.message.reply_text(message)
+        return
+    
+    # Format display name
+    name = user[0][1]
+    username = user[0][2]
+    # Format display name
+    if username:
+        display_name = f"{name} (@{username})"
+    else:
+        display_name = name
+            
+    # Connect to database and get expenses for this chat
+    cursor.execute('SELECT type, amount, shared_with FROM expenses WHERE chat_id = ? ORDER BY type', (chat_id,))
+    expenses = cursor.fetchall() 
+    conn.close()
+
+    # Use a dictionary to accumulate totals
+    category_totals = {}
+
+    for expense in expenses:
+        expense_type = expense[0]
+        amount = expense[1]
+        shared_with = json.loads(expense[2])
+        
+        # CHECK if user is in this expense!
+        if user_id in shared_with:
+            split_amount = amount / len(shared_with)
+            
+            # Add to category total
+            if expense_type in category_totals:
+                category_totals[expense_type] += split_amount
+            else:
+                category_totals[expense_type] = split_amount
+
+    # Print all categories
+    message = f"💰 {display_name}'s Expense Summary (By Category) 💰\n\n"
+    if not category_totals:
+        message += "No expenses found for you yet!\n\n"
+    else:
+        for category, total in sorted(category_totals.items()):
+            message += f"• {category}: ${total:.2f}\n"
+        message += "\n"  # Add spacing before balance
+
+    user_balances, creditors, debtors = calculate_balances(chat_id)
+    
+    for user_balance in user_balances:
+        if user_balance[0] == display_name:
+            message += f"📊 <b><u>{display_name}'s Current Balance</u></b> 📊\n"
+            if user_balance[1] > 0:
+                message += f"💰 You are owed ${user_balance[1]:.2f}\n\n"
+            elif user_balance[1] < 0:
+                message += f"💸 You owe ${-user_balance[1]:.2f}\n\n"
+            elif user_balance[1] == 0:
+                message += "✅ You are settled up!\n\n"
+            break
+
+    await update.message.reply_text(message, parse_mode="HTML")
+    return
 
 def main():
     setup_database()
@@ -545,6 +714,8 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_split_selection))
     app.add_handler(CommandHandler("balance", balance_expenses))
     app.add_handler(CommandHandler("settle", settle_expenses))
+    app.add_handler(CommandHandler("groupbreakdown", group_breakdown))
+    app.add_handler(CommandHandler("mybreakdown", my_breakdown))
 
     # Run the bot
     app.run_polling()
