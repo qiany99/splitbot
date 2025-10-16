@@ -154,23 +154,24 @@ async def start(update, context):
         cursor.execute('INSERT INTO users (chat_id, user_id, name, username) VALUES (?, ?, ?, ?)', 
                       (chat_id, user_id, name, username))
         conn.commit()
-        welcome_msg = f"Welcome {name}! You've been registered."
+        welcome_msg = f"Welcome <i>{name}</i>! You've been registered."
     else:
-        welcome_msg = f"Welcome back {name}!"
+        welcome_msg = f"Welcome back <i>{name}</i>!"
     
     conn.close()
     
     await update.message.reply_text(
         f"{welcome_msg}\n\n"
-        "📝 Available commands 📝\n"
-        "• /add - Add a new expense\n" 
-        "• /list - See all expenses\n"
-        "• /balance - See who owes what\n"
-        "• /settle - Settle up expenses\n"
-        "• /mybreakdown - View personal spending by category\n"
-        "• /groupbreakdown - View group spending by category\n\n"
-        "⚠️ IMPORTANT: Make sure ALL group members type /start to register! ⚠️"
+        "📝 <b>Available commands</b> 📝\n"
+        "• /add - <i>Add a new expense</i>\n" 
+        "• /list - <i>See all expenses</i>\n"
+        "• /balance - <i>See who owes what</i>\n"
+        "• /settle - <i>Settle up expenses</i>\n"
+        "• /mybreakdown - <i>View personal spending by category</i>\n"
+        "• /groupbreakdown - <i>View group spending by category</i>\n\n"
+        "⚠️ <b>IMPORTANT</b>: Make sure <b><u>ALL</u></b> group members type /start to register! ⚠️", parse_mode="HTML"
     )
+
 # Handler for /add command to start adding an expense    
 async def add_start(update, context):
     reply_markup = ReplyKeyboardMarkup(TYPE_CATEGORIES, one_time_keyboard=True, resize_keyboard=True)
@@ -290,7 +291,7 @@ async def handle_split_selection(update, context):
         
         # Seeking for confirmation message
         confirmation = (
-            f"❗️❗️Please confirm the expense details❗️❗️\n\n"
+            f"❗️❗️<b>Please confirm the expense details</b>❗️❗️\n\n"
             f"• Type: {expense_type}\n"
             f"• Name: {expense_name}\n"
             f"• Amount: ${amount}\n"
@@ -305,7 +306,7 @@ async def handle_split_selection(update, context):
         keyboard.append([cancel_button]) 
         reply_markup= InlineKeyboardMarkup(keyboard)
 
-        await query.edit_message_text(confirmation, reply_markup=reply_markup)
+        await query.edit_message_text(confirmation, reply_markup=reply_markup, parse_mode="HTML")
         return
     
     if query.data == "cancel":
@@ -353,13 +354,13 @@ async def handle_split_selection(update, context):
 
         # Acknowledgement message
         acknowledgement = (
-            f"✅ Expense saved!\n\n"
-            f"📋 Summary 📋\n"
-            f"• Type: {expense_type}\n"
-            f"• Name: {expense_name}\n"
-            f"• Amount: ${amount}\n"
-            f"• Paid by: {payer_user}\n"
-            f"• Split between: {', '.join(shared_users)}"
+            f"✅ <b>Expense saved!</b>\n\n"
+            f"📋 <b><u>Summary</u></b>📋\n"
+            f"• <b>Type</b>: {expense_type}\n"
+            f"• <b>Name</b>: {expense_name}\n"
+            f"• <b>Amount</b>: ${amount: .2f}\n"
+            f"• <b>Paid by</b>: {payer_user}\n"
+            f"• <b>Split between</b>: {', '.join(shared_users)}"
         )
 
         # Save to database
@@ -374,7 +375,7 @@ async def handle_split_selection(update, context):
         conn.commit()
         conn.close()
     
-        await query.edit_message_text(acknowledgement)
+        await query.edit_message_text(acknowledgement, parse_mode="HTML")
         return ConversationHandler.END
     
     # Check if "who paid" button was clicked
@@ -491,10 +492,10 @@ async def list_expenses(update, context):
     users = get_registered_users(chat_id)
 
     # Build the message from database results
-    message = "💰 Group Expenses:\n\n"
+    message = "💰 <b><u>Group Expenses</u></b> 💰\n\n"
     for i, expense in enumerate(expenses, 1):
         # expense is a tuple: (id, chat_id, type, name, amount, paid_by, shared_with)
-        message += f"{i}. {expense[3]} - ${expense[4]}\n"        # name - amount
+        message += f"{i}. <b>{expense[3]}</b> - ${expense[4]}\n"        # name - amount
         message += f"   Type: {expense[2]}\n"                    # type
 
         # Get payer name from database
@@ -520,7 +521,7 @@ async def list_expenses(update, context):
         message += f"   Paid by: {payer_user}\n"    # paid_by
         message += f"   Split between: {', '.join(shared_users)}\n\n"   # shared_with
 
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 # Handler to balance all expenses in the group
 async def balance_expenses(update, context):
@@ -536,7 +537,7 @@ async def balance_expenses(update, context):
     user_balances, creditors, debtors = calculate_balances(chat_id)
     
     # Build message
-    message = "💰 Group Balances 💰\n\n"
+    message = "💰 <b><u>Group Balances</u></b> 💰\n\n"
     for display_name, balance in user_balances:
         if balance > 0:
             message += f"• {display_name} is owed ${balance:.2f}\n"
@@ -545,7 +546,7 @@ async def balance_expenses(update, context):
         else:
             message += f"• {display_name} is settled up\n"
     
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 async def settle_expenses(update, context):
     chat_id = update.message.chat.id
@@ -582,11 +583,11 @@ async def settle_expenses(update, context):
     
     # Display settlements
     if settlements:
-        message = "💸 Settlement Plan 💸\n\n" + "\n".join(settlements)
+        message = "💸 <b><u>Settlement Plan</u></b> 💸\n\n" + "\n".join(settlements)
     else:
         message = "✅ Everyone is settled up!"
     
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 async def group_breakdown(update, context):
     chat_id = update.message.chat.id
@@ -605,15 +606,15 @@ async def group_breakdown(update, context):
     conn.close()
 
     # Build the message from database results
-    message = "💰 Group Expense Summary (By Category) 💰\n\n"
+    message = "💰 <b><u>Group Expense Summary (By Category)</u></b> 💰\n\n"
     total_spend = 0
     for expense in expenses:
-        message +=f"{expense[0]}: ${expense[1]:.2f}\n"
+        message +=f"<b>{expense[0]}</b>: ${expense[1]:.2f}\n"
         total_spend += expense[1]
 
-    message += f"\n💵 Total Spent: ${total_spend:.2f}"
+    message += f"\n💵 <b>Total Spent</b>: ${total_spend:.2f}"
     
-    await update.message.reply_text(message)
+    await update.message.reply_text(message, parse_mode="HTML")
 
 async def my_breakdown(update, context):
     chat_id = update.message.chat.id
@@ -668,19 +669,19 @@ async def my_breakdown(update, context):
                 category_totals[expense_type] = split_amount
 
     # Print all categories
-    message = f"💰 {display_name}'s Expense Summary (By Category) 💰\n\n"
+    message = f"💰 <b><u>{display_name}'s Expense Summary (By Category)</u></b> 💰\n\n"
     if not category_totals:
         message += "No expenses found for you yet!\n\n"
     else:
         for category, total in sorted(category_totals.items()):
-            message += f"• {category}: ${total:.2f}\n"
+            message += f"• <b>{category}</b>: ${total:.2f}\n"
         message += "\n"  # Add spacing before balance
 
     user_balances, creditors, debtors = calculate_balances(chat_id)
     
     for user_balance in user_balances:
         if user_balance[0] == display_name:
-            message += f"📊 <b><u>{display_name}'s Current Balance</u></b> 📊\n"
+            message += f"📊 <b><u>{display_name}'s Current Balance</u></b> 📊\n\n"
             if user_balance[1] > 0:
                 message += f"💰 You are owed ${user_balance[1]:.2f}\n\n"
             elif user_balance[1] < 0:
