@@ -49,6 +49,7 @@
 ### Adding an axpense using /add
 
 ```
+
 1. Enter amount: 50
 2. Enter description: Dinner at Italian restaurant
 3. Choose category: 🍕 Food & Drinks
@@ -61,6 +62,7 @@
 ### Checking group balances using /balance 
 
 ```
+
 💰 Group Balances 💰
 
 • Banana (@bananasplit) is owed $50.00 
@@ -71,6 +73,7 @@
 ### Using /settle for settlement instructions
 
 ```
+
 💸 Settlement Plan 💸
 
 • Grape (@grapeslush) pays Banana (@bananasplit) $50.00
@@ -80,6 +83,7 @@
 ### Obtain personal spending patterns and balance using /mybreakdown 
 
 ```
+
 💰 Apple (@applepie)'s Expense Summary (By Category) 💰
 
 • 🏠 Accommodation: $500.00
@@ -95,6 +99,7 @@
 ### Obtain group spending patterns using /groupbreakdown
 
 ```
+
 💰 Group Expense Summary (By Category) 💰
 
 • 🏠 Accommodation: $500.00
