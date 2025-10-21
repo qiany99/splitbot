@@ -5,7 +5,9 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardBut
 from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, filters, CallbackQueryHandler
 from dotenv import load_dotenv
 
+# Try loading from token.env (local)
 load_dotenv("token.env")
+# Then read the token (works for both local + Render)
 TOKEN = os.getenv("BOT_TOKEN")
 
 # Conversation states
@@ -169,6 +171,7 @@ async def start(update, context):
         "• /settle - <i>Settle up expenses</i>\n"
         "• /mybreakdown - <i>View personal spending by category</i>\n"
         "• /groupbreakdown - <i>View group spending by category</i>\n\n"
+        "• /cancel - <i>Cancel current operation</i>\n\n"
         "⚠️ <b>IMPORTANT</b>: Make sure <b><u>ALL</u></b> group members type /start to register! ⚠️", parse_mode="HTML"
     )
 
