@@ -170,7 +170,7 @@ async def start(update, context):
         "• /balance - <i>See who owes what</i>\n"
         "• /settle - <i>Settle up expenses</i>\n"
         "• /mybreakdown - <i>View personal spending by category</i>\n"
-        "• /groupbreakdown - <i>View group spending by category</i>\n\n"
+        "• /groupbreakdown - <i>View group spending by category</i>\n"
         "• /cancel - <i>Cancel current operation</i>\n\n"
         "⚠️ <b>IMPORTANT</b>: Make sure <b><u>ALL</u></b> group members type /start to register! ⚠️", parse_mode="HTML"
     )
