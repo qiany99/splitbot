@@ -116,12 +116,13 @@ def setup_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER,
-            type TEXT,
-            name TEXT,
-            amount REAL,
-            paid_by INTEGER,
-            shared_with TEXT
+            chat_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            amount REAL NOT NULL,
+            paid_by INTEGER NOT NULL,
+            shared_with TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
@@ -129,10 +130,10 @@ def setup_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER,
-        user_id INTEGER,
-        name TEXT,
-        username TEXT
+        chat_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        username TEXT NOT NULL
     )
 ''')
 
