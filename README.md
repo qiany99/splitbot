@@ -138,7 +138,7 @@ Here's what each file in the project does:
 
 ## 🌐 Deployment
 
-This project was deployed on [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) to enable 24/7 uptime and ensure continuous availability of the Telegram bot. Railway provides a simple and scalable way to host Python applications, making it ideal for running background services like this expense tracking bot.
+This project was deployed on [Railway](https://railway.app) to enable 24/7 uptime and ensure continuous availability of the Telegram bot. Railway provides a simple and scalable way to host Python applications, making it ideal for running background services like this expense tracking bot.
 
 To ensure privacy and data security, the database file and bot token were not uploaded to the public repository. Instead, sensitive credentials are stored securely in environment variables within Railway. This prevents unauthorized access and keeps user data safe.
 
