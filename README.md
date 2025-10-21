@@ -1,5 +1,5 @@
 # 💰 SplitBot - Your Smart Expense Tracker
-> A Telegram bot that helps you split bills and track expenses with your friends and groups effortlessly!
+A Telegram bot that helps you split bills and track expenses with your friends and groups effortlessly!
 
 ---
 
@@ -138,13 +138,9 @@ Here's what each file in the project does:
 
 ## 🌐 Deployment
 
-### Deployed on Railway 
+This project was deployed on [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) to enable 24/7 uptime and ensure continuous availability of the Telegram bot. Railway provides a simple and scalable way to host Python applications, making it ideal for running background services like this expense tracking bot.
 
-1. Fork this repository
-2. Sign up at [Railway.app](https://railway.app)
-3. Create a new project from GitHub repo
-4. Add environment variable: `BOT_TOKEN`
-5. Deploy! 🚀
+To ensure privacy and data security, the database file and bot token were not uploaded to the public repository. Instead, sensitive credentials are stored securely in environment variables within Railway. This prevents unauthorized access and keeps user data safe.
 
 ---
 
