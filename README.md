@@ -1,6 +1,13 @@
 # 💰 SplitBot - Your Smart Expense Tracker
 > A Telegram bot that helps you split bills and track expenses with your friends and groups effortlessly!
-> Video Demo:  <URL HERE>
+
+---
+
+## Video Demo
+
+<URL HERE>
+
+---
 
 ## ✨ Features
 
@@ -22,8 +29,6 @@
 2. **Add to a group:** Invite the bot to your group chat
 3. **Register members:** All group members must send `/start`
 4. **Start tracking:** Use `/add` to log expenses!
-
----
 
 ### Commands
 | Command | Description |
@@ -50,12 +55,14 @@
 4. Select who paid
 5. Select who should split the bill
 6. Done! ✅
+
 ```
 
 ### Checking group balances using /balance 
 
 ```
-💰 <u>**Group Balances**</u> 💰
+💰 Group Balances 💰
+
 • Banana (@bananasplit) is owed $50.00 
 • Grape (@grapeslush) is owes $50.00
 • Apple (@applepie) is settled up
@@ -64,7 +71,8 @@
 ### Using /settle for settlement instructions
 
 ```
-💸 **<u>Settlement Plan</u>**💸
+💸 Settlement Plan 💸
+
 • Grape (@grapeslush) pays Banana (@bananasplit) $50.00
 
 ```
@@ -72,14 +80,14 @@
 ### Obtain personal spending patterns and balance using /mybreakdown 
 
 ```
-💰 <u>**Apple (@applepie)'s Expense Summary (By Category)**</u> 💰
+💰 Apple (@applepie)'s Expense Summary (By Category) 💰
 
 • 🏠 Accommodation: $500.00
 • 🍕 Food & Drinks: $100.00
 • 🚗 Transportation: $300.00
 • 🛍️ Shopping & Souvenirs: $1300.00
 
-📊 <u>**Apple (@applepie)'s Current Balance**</u> 📊
+📊 Apple (@applepie)'s Current Balance 📊
 
 ✅ You are settled up!
 
@@ -87,14 +95,14 @@
 ### Obtain group spending patterns using /groupbreakdown
 
 ```
-💰 <u>**Group Expense Summary (By Category)**</u> 💰
+💰 Group Expense Summary (By Category) 💰
 
 • 🏠 Accommodation: $500.00
 • 🍕 Food & Drinks: $100.00
 • 🚗 Transportation: $300.00
 • 🛍️ Shopping & Souvenirs: $1300.00
 
-💵 **Total Spent**: $ 2200.00
+💵 Total Spent: $ 2200.00
 
 ```
 ---
@@ -125,7 +133,7 @@ Here's what each file in the project does:
 
 ## 🌐 Deployment
 
-### Deploy on Railway (Recommended - Free!)
+### Deployed on Railway 
 
 1. Fork this repository
 2. Sign up at [Railway.app](https://railway.app)
@@ -168,6 +176,6 @@ CREATE TABLE users (
 
 ## 🙏 Acknowledgments
 
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Amazing bot framework
-- [Railway](https://railway.app) - Easy and free hosting
+- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) 
+- [Railway](https://railway.app) 
 - All contributors and users who make this project better! ❤️
