@@ -5,7 +5,7 @@ A Telegram bot that helps you split bills and track expenses with your friends a
 
 ## Video Demo
 
-<URL HERE>
+https://youtu.be/buCrmVLFHYc
 
 ---
 
