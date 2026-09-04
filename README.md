@@ -25,7 +25,7 @@ https://youtu.be/buCrmVLFHYc
 
 ### For Users
 
-1. **Find the bot on Telegram:** Search for `@splitbot`
+1. **Find the bot on Telegram:** Search for `@The_Split_Bot`
 2. **Add to a group:** Invite the bot to your group chat
 3. **Register members:** All group members must send `/start`
 4. **Start tracking:** Use `/add` to log expenses!
@@ -46,7 +46,7 @@ https://youtu.be/buCrmVLFHYc
 
 ## 💡 Usage Examples
 
-### Adding an axpense using /add
+### Adding an expense using /add
 
 ```
 
@@ -66,7 +66,7 @@ https://youtu.be/buCrmVLFHYc
 💰 Group Balances 💰
 
 • Banana (@bananasplit) is owed $50.00 
-• Grape (@grapeslush) is owes $50.00
+• Grape (@grapeslush) owes $50.00
 • Apple (@applepie) is settled up
 
 ```
@@ -123,7 +123,7 @@ Here's what each file in the project does:
 | `bot.py` | Main bot application containing the main entry point (`main()` function that starts the bot), datbase setup (`setup_database()` function that creates SQLite tables), all command handlers (functions for `/start`, `/add`, `/list`, `/balance`, `/settle`, etc), conversation flows (multi-step conversations for adding expenses), and business logic (calculations for splitting bills and tracking balances) for expense tracking and splitting |
 | `requirements.txt` | Lists all Python package dependencies needed to run the bot (python-telegram-bot, python-dotenv) |
 | `runtime.txt` | Specifies the Python version (3.12.0) for deployment platforms like Render |
-| `.env` | Stores sensitive environment variables like `BOT_TOKEN` which was provided by @BotFather (⚠️ **never committed to Git**) |
+| `token.env` | Stores sensitive environment variables like `BOT_TOKEN` which was provided by @BotFather (⚠️ **never committed to Git**) |
 | `.gitignore` | Tells Git which files to ignore (database files, virtual environment, secrets) |
 | `README.md` | This file! Project documentation and setup instructions |
 
@@ -154,8 +154,9 @@ CREATE TABLE expenses (
     chat_id INTEGER NOT NULL,
     type TEXT,
     name TEXT NOT NULL,
+    username TEXT NOT NULL,
     amount REAL NOT NULL,
-    paid_by TEXT NOT NULL,
+    paid_by INTEGER,
     shared_with TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
