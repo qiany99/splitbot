@@ -122,7 +122,7 @@ Here's what each file in the project does:
 |------|-------------|
 | `bot.py` | Main bot application containing the main entry point (`main()` function that starts the bot), datbase setup (`setup_database()` function that creates SQLite tables), all command handlers (functions for `/start`, `/add`, `/list`, `/balance`, `/settle`, etc), conversation flows (multi-step conversations for adding expenses), and business logic (calculations for splitting bills and tracking balances) for expense tracking and splitting |
 | `requirements.txt` | Lists all Python package dependencies needed to run the bot (python-telegram-bot, python-dotenv) |
-| `runtime.txt` | Specifies the Python version (3.12.0) for deployment platforms like Render |
+| `runtime.txt` | Specifies the Python version (3.12.0) for deployment platforms like Railway |
 | `token.env` | Stores sensitive environment variables like `BOT_TOKEN` which was provided by @BotFather (⚠️ **never committed to Git**) |
 | `.gitignore` | Tells Git which files to ignore (database files, virtual environment, secrets) |
 | `README.md` | This file! Project documentation and setup instructions |
@@ -154,9 +154,8 @@ CREATE TABLE expenses (
     chat_id INTEGER NOT NULL,
     type TEXT,
     name TEXT NOT NULL,
-    username TEXT NOT NULL,
     amount REAL NOT NULL,
-    paid_by INTEGER,
+    paid_by INTEGER NOT NULL,
     shared_with TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -170,7 +169,7 @@ CREATE TABLE users (
     chat_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    UNIQUE(chat_id, user_id)
+    username TEXT NOT NULL
 );
 ```
 
